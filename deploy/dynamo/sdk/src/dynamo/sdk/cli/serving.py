@@ -370,16 +370,15 @@ def serve_http(
         except ValueError as e:
             raise BentoMLConfigException(f"Invalid host IP address: {host}") from e
 
-        if not svc.is_dynamo_component():
-            sockets.append(
-                CircusSocket(
-                    name=API_SERVER_NAME,
-                    host=host,
-                    port=port,
-                    family=family,
-                    backlog=backlog,
-                )
+        sockets.append(
+            CircusSocket(
+                name=API_SERVER_NAME,
+                host=host,
+                port=port,
+                family=family,
+                backlog=backlog,
             )
+        )
         if BentoMLContainer.ssl.enabled.get() and not ssl_certfile:
             raise BentoMLConfigException("ssl_certfile is required when ssl is enabled")
 
@@ -432,6 +431,8 @@ def serve_http(
                 svc.name,
                 "--worker-id",
                 "$(CIRCUS.WID)",
+                "--fd",
+                f"$(circus.sockets.{API_SERVER_NAME})",
             ]
             watcher = create_watcher(
                 name=f"dynamo_service_{svc.name}",

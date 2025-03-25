@@ -13,8 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import AsyncGenerator
 from pydantic import BaseModel
 
+from bentoml.images import Image
 from dynamo.sdk import DYNAMO_IMAGE, api, depends, dynamo_endpoint, service
 
 """
@@ -55,7 +57,6 @@ class ResponseType(BaseModel):
         "namespace": "inference",
     },
     workers=3,
-    image=DYNAMO_IMAGE,
 )
 class Backend:
     def __init__(self) -> None:
@@ -75,7 +76,6 @@ class Backend:
     resources={"cpu": "2"},
     traffic={"timeout": 30},
     dynamo={"enabled": True, "namespace": "inference"},
-    image=DYNAMO_IMAGE,
 )
 class Middle:
     backend = depends(Backend)
@@ -96,9 +96,11 @@ class Middle:
 
 
 @service(
+    name='dynamo-helloworld',
     resources={"cpu": "1"},
     traffic={"timeout": 60},
-    image=DYNAMO_IMAGE,
+    image=Image(base_image='debian:trixie')
+        .run('apt update && apt install -y python3 python3-pip && export PIP_BREAK_SYSTEM_PACKAGES=true').python_packages('ai-dynamo @ https://github.com/frostming/dynamo/releases/download/v0.1.1/ai_dynamo-0.1.1.post1-py3-none-any.whl')
 )  # Regular HTTP API
 class Frontend:
     middle = depends(Middle)
@@ -107,7 +109,7 @@ class Frontend:
         print("Starting frontend")
 
     @api
-    async def generate(self, text):
+    async def generate(self, text: str) -> AsyncGenerator[str, None]:
         """Stream results from the pipeline."""
         print(f"Frontend received: {text}")
         print(f"Frontend received type: {type(text)}")

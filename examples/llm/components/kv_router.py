@@ -22,12 +22,12 @@ from typing import AsyncIterator
 
 from components.worker import VllmWorker
 from utils.protocol import Tokens
-from vllm.logger import logger as vllm_logger
 
 from dynamo.llm import AggregatedMetrics, KvIndexer, KvMetricsAggregator, OverlapScores
 from dynamo.sdk import async_on_start, depends, dynamo_context, dynamo_endpoint, service
 from dynamo.sdk.lib.config import ServiceConfig
 
+from vllm.logger import logger as vllm_logger
 WorkerId = str
 
 

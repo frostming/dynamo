@@ -59,14 +59,20 @@ def generate_run_id():
     default=None,
     help="If set, start the server as a bare worker with the given worker ID. Otherwise start a standalone server with a supervisor process.",
 )
+@click.option("--fd", type=click.INT, default=None, help="File descriptor to use")
 def main(
     bento_identifier: str,
     service_name: str,
     runner_map: str | None,
     worker_env: str | None,
     worker_id: int | None,
+    fd: int | None,
 ) -> None:
     """Start a worker for the given service - either Dynamo or regular service"""
+    import uvicorn
+    from starlette.applications import Starlette
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Route
     from _bentoml_impl.loader import load
     from bentoml._internal.container import BentoMLContainer
     from bentoml._internal.context import server_context
@@ -106,9 +112,22 @@ def main(
     if service.is_dynamo_component():
         if worker_id is not None:
             server_context.worker_index = worker_id
+        
+        async def readyz(request):
+            return PlainTextResponse("OK")
+        
+        app = Starlette(routes=[Route("/readyz", readyz), Route('/healthz', readyz), Route('/livez', readyz)])
+        if fd is not None:
+            config = uvicorn.Config(app=app, access_log=False)
+            config.setup_event_loop()
+            server = uvicorn.Server(config)
 
         @dynamo_worker()
         async def worker(runtime: DistributedRuntime):
+            if fd is not None:
+                import socket
+                sock = socket.socket(fileno=fd)
+                http_server = asyncio.create_task(server.serve(sockets=[sock]))
             global dynamo_context
             dynamo_context["runtime"] = runtime
             if service_name and service_name != service.name:

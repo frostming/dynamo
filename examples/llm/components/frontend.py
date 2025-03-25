@@ -19,7 +19,7 @@ from pathlib import Path
 from components.processor import Processor
 from components.worker import VllmWorker
 from pydantic import BaseModel
-
+from bentoml.images import Image
 from dynamo import sdk
 from dynamo.sdk import depends, service
 from dynamo.sdk.lib.config import ServiceConfig
@@ -44,7 +44,13 @@ class FrontendConfig(BaseModel):
 @service(
     resources={"cpu": "10", "memory": "20Gi"},
     workers=1,
-    image=DYNAMO_IMAGE,
+    image=Image(base_image='debian:trixie')
+        .run('apt update && apt install -y python3 python3-pip && export PIP_BREAK_SYSTEM_PACKAGES=true')
+        .python_packages(
+            'vllm',
+            'msgspec',
+            'ai-dynamo @ https://github.com/frostming/dynamo/releases/download/v0.1.1/ai_dynamo-0.1.1.post2-py3-none-any.whl'
+        )
 )
 # todo this should be called ApiServer
 class Frontend:
